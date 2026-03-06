@@ -4,656 +4,967 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Qiye Han — Desktop</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=VT323&family=Inter:wght@300;400;500;600&family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet">
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            retro: ['"VT323"', 'monospace'],
-            display: ['"Cormorant Garamond"', 'Georgia', 'serif'],
-            body: ['"Inter"', 'system-ui', 'sans-serif'],
-          },
-        }
-      }
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.164.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.0/examples/jsm/"
     }
+  }
   </script>
   <style>
-    html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; background: #c8b8a0; }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #d5cfc5; }
+    body { font-family: 'Inter', system-ui, sans-serif; color: #2d2a26; -webkit-font-smoothing: antialiased; }
 
-    /* === SCENE === */
-    .scene {
-      width: 100%; height: 100%;
-      display: flex; flex-direction: column;
+    #canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+
+    #vignette {
+      position: fixed; inset: 0; pointer-events: none; z-index: 1;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.15) 100%);
     }
-
-    /* Wall */
-    .wall {
-      flex: 0 0 35%;
-      background: linear-gradient(180deg, #e0d8cc 0%, #d8d0c4 80%, #cec5b8 100%);
-      position: relative;
-    }
-
-    /* Desk */
-    .desk-area {
-      flex: 1;
-      position: relative;
-      perspective: 900px;
-      perspective-origin: 50% 0%;
-      overflow: hidden;
+    #grain {
+      position: fixed; inset: 0; pointer-events: none; z-index: 2; opacity: 0.02;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
     }
 
-    .desk-top {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 100%;
-      background:
-        repeating-linear-gradient(90deg, transparent 0px, rgba(100,70,30,0.03) 1px, transparent 3px, transparent 16px),
-        linear-gradient(180deg, #b89878 0%, #a88868 30%, #9a7858 100%);
-      transform: rotateX(55deg);
-      transform-origin: top center;
-      box-shadow: inset 0 2px 20px rgba(0,0,0,0.08);
+    /* Loader */
+    #loader {
+      position: fixed; inset: 0; z-index: 200; background: #d5cfc5;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      transition: opacity 1s ease;
     }
-    .desk-top::before {
-      content: '';
-      position: absolute; inset: 0;
-      pointer-events: none;
-      opacity: 0.035;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    }
+    #loader.done { opacity: 0; pointer-events: none; }
+    #loader h1 { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 600; letter-spacing: -0.03em; color: #3a3530; }
+    #loader p { font-size: 0.7rem; color: #8b8680; margin-top: 0.4rem; letter-spacing: 0.06em; text-transform: uppercase; }
+    #loader-bar { width: 60px; height: 1px; background: #c0b8a8; margin-top: 2rem; overflow: hidden; }
+    #loader-bar::after { content: ''; display: block; width: 40%; height: 100%; background: #7a7268; animation: loadSlide 1s ease-in-out infinite; }
+    @keyframes loadSlide { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }
 
-    /* Desk front edge */
-    .desk-front {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 60px;
-      background: linear-gradient(180deg, #9a7858, #8a6848);
-      border-top: 2px solid #b89878;
-    }
+    /* UI Overlay */
+    #ui { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
 
-    /* Items sit on top of the perspective desk */
-    .items-layer {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 100%;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      gap: 60px;
-      padding-top: 20px;
-      /* Same perspective as desk */
-      perspective: 900px;
-      perspective-origin: 50% 0%;
-    }
+    #header { position: absolute; top: 2rem; left: 2.5rem; opacity: 0; transition: opacity 0.8s ease; }
+    #header.show { opacity: 1; }
+    #header h1 { font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; font-weight: 600; letter-spacing: -0.02em; color: #3a3530; }
+    #header p { font-size: 0.6rem; color: #8b8680; margin-top: 0.15rem; letter-spacing: 0.06em; text-transform: uppercase; }
 
-    /* === 3D OBJECT CONSTRUCTION === */
-    .object-3d {
-      transform-style: preserve-3d;
-      cursor: pointer;
-      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    #nav {
+      position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 2rem; opacity: 0; transition: opacity 0.8s ease; pointer-events: auto;
     }
-    .object-3d:hover {
-      transform: translateY(-6px) scale(1.02);
+    #nav.show { opacity: 1; }
+    #nav a {
+      font-size: 0.65rem; color: #8b8680; text-decoration: none;
+      text-transform: uppercase; letter-spacing: 0.08em; font-weight: 500;
+      position: relative; transition: color 0.3s ease;
     }
-    .object-3d:focus-visible {
-      outline: 2px solid #5a8a5c;
-      outline-offset: 8px;
-      border-radius: 4px;
+    #nav a::after {
+      content: ''; position: absolute; bottom: -3px; left: 0;
+      width: 0; height: 1px; background: #4d6a6d;
+      transition: width 0.3s cubic-bezier(0.33, 1, 0.68, 1);
     }
+    #nav a:hover { color: #3a3530; }
+    #nav a:hover::after { width: 100%; }
+    #nav a:focus-visible { color: #3a3530; outline: 1px solid #4d6a6d; outline-offset: 4px; }
 
-    /* === SWAY === */
-    @keyframes sway1 {
-      0%,100% { transform: rotate(-0.3deg); }
-      50% { transform: rotate(0.3deg); }
+    #hint {
+      position: absolute; bottom: 4.5rem; left: 50%; transform: translateX(-50%);
+      font-size: 0.6rem; color: #a09888; letter-spacing: 0.06em;
+      opacity: 0; transition: opacity 0.8s ease;
     }
-    @keyframes sway2 {
-      0%,100% { transform: rotate(0.2deg); }
-      50% { transform: rotate(-0.35deg); }
-    }
-    @keyframes sway3 {
-      0%,100% { transform: rotate(0.15deg); }
-      50% { transform: rotate(-0.3deg); }
-    }
-    .sway-1 { animation: sway1 5s ease-in-out infinite; transform-origin: bottom center; }
-    .sway-2 { animation: sway2 6s ease-in-out infinite; animation-delay: -2s; transform-origin: bottom center; }
-    .sway-3 { animation: sway3 5.5s ease-in-out infinite; animation-delay: -1s; transform-origin: bottom center; }
+    #hint.show { opacity: 1; }
 
-    /* === MAC 3D BOX === */
-    .mac-box {
-      width: 220px;
-      height: 240px;
-      position: relative;
-      transform-style: preserve-3d;
-      transform: rotateX(-12deg) rotateY(-15deg);
+    #view-link {
+      position: absolute; top: 2rem; right: 2.5rem;
+      font-size: 0.6rem; color: #8b8680; text-decoration: none;
+      letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500;
+      pointer-events: auto; opacity: 0;
+      transition: opacity 0.8s ease, color 0.3s ease;
     }
+    #view-link.show { opacity: 1; }
+    #view-link:hover { color: #3a3530; }
 
-    .mac-face {
-      position: absolute;
-      backface-visibility: hidden;
+    .label-3d {
+      position: absolute; pointer-events: none; white-space: nowrap;
+      font-size: 0.55rem; color: #9a9088; text-transform: uppercase;
+      letter-spacing: 0.12em; font-weight: 500;
+      opacity: 0; transition: opacity 0.4s ease, color 0.3s ease;
+      transform: translate(-50%, 0);
     }
+    .label-3d.visible { opacity: 1; }
+    .label-3d.hovered { color: #4d6a6d; }
 
-    /* Front face */
-    .mac-front {
-      width: 220px; height: 240px;
-      background: linear-gradient(180deg, #e8dcc8 0%, #ddd0bc 100%);
-      border-radius: 10px;
-      transform: translateZ(40px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    /* Panel */
+    #panel {
+      position: fixed; top: 0; right: 0; width: 440px; height: 100vh;
+      background: rgba(250, 248, 244, 0.96);
+      backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+      border-left: 1px solid rgba(0,0,0,0.06);
+      transform: translateX(100%);
+      transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 20; overflow-y: auto; overflow-x: hidden;
+      color: #2d2a26;
     }
+    #panel.open { transform: translateX(0); pointer-events: auto; }
 
-    /* Top face */
-    .mac-top {
-      width: 220px; height: 80px;
-      background: linear-gradient(180deg, #f0e8d8, #e8dcc8);
-      transform: rotateX(90deg) translateZ(-0px) translateY(-40px);
-      transform-origin: bottom;
-      border-radius: 10px 10px 0 0;
+    #panel-close {
+      position: sticky; top: 0; z-index: 1;
+      display: flex; justify-content: flex-end;
+      padding: 1.5rem 1.5rem 0 0; background: transparent; border: none; cursor: pointer;
     }
-
-    /* Right side */
-    .mac-right {
-      width: 80px; height: 240px;
-      background: linear-gradient(90deg, #d8ccb4, #ccc0a8);
-      transform: rotateY(90deg) translateZ(180px) translateX(-40px);
-      transform-origin: left;
-      border-radius: 0 10px 10px 0;
-    }
-
-    /* Left side */
-    .mac-left {
-      width: 80px; height: 240px;
-      background: linear-gradient(90deg, #ccc0a8, #c4b89c);
-      transform: rotateY(-90deg) translateZ(0px) translateX(40px);
-      transform-origin: right;
-      border-radius: 10px 0 0 10px;
-    }
-
-    /* CRT */
-    .crt-bezel {
-      position: absolute;
-      top: 22px; left: 28px;
-      width: 164px; height: 120px;
-      background: #2a2a2a;
-      border-radius: 5px;
-      padding: 7px;
-      box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
-    }
-    .crt-screen {
-      width: 100%; height: 100%;
-      background: linear-gradient(180deg, #2d4a2e, #254025);
-      border-radius: 4px;
-      position: relative;
-      overflow: hidden;
-      box-shadow: inset 0 0 20px rgba(90,138,92,0.3), 0 0 8px rgba(90,138,92,0.1);
-    }
-    .crt-screen::after {
-      content: '';
-      position: absolute; inset: 0;
-      background: repeating-linear-gradient(0deg, transparent 0px, rgba(0,0,0,0.03) 1px, transparent 2px, transparent 3px);
-      pointer-events: none;
-    }
-
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-
-    /* Keyboard 3D */
-    .keyboard-3d {
-      position: relative;
-      width: 200px; height: 20px;
-      transform-style: preserve-3d;
-      transform: rotateX(-12deg) rotateY(-15deg) translateZ(40px) translateY(10px);
-    }
-    .kb-top {
-      width: 200px; height: 50px;
-      background: linear-gradient(180deg, #ddd0bc, #c8bca8);
-      border-radius: 3px;
-      transform: rotateX(70deg);
-      transform-origin: top;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    }
-    .kb-front {
-      position: absolute;
-      top: 0; left: 0;
-      width: 200px; height: 8px;
-      background: linear-gradient(180deg, #c4b8a4, #b8ac98);
-      border-radius: 0 0 3px 3px;
-      transform: translateY(14px);
-    }
-
-    /* === FILE BOX 3D === */
-    .filebox {
-      width: 160px; height: 140px;
-      position: relative;
-      transform-style: preserve-3d;
-      transform: rotateX(-12deg) rotateY(15deg);
-    }
-    .filebox-front {
-      width: 160px; height: 140px;
-      background: linear-gradient(180deg, #a07850, #8b6540);
-      border-radius: 4px;
-      transform: translateZ(35px);
-      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-    }
-    .filebox-top {
-      width: 160px; height: 70px;
-      background: linear-gradient(180deg, #b08860, #a07850);
-      transform: rotateX(90deg) translateY(-35px);
-      transform-origin: bottom;
-      border-radius: 4px 4px 0 0;
-    }
-    .filebox-right {
-      width: 70px; height: 140px;
-      background: linear-gradient(90deg, #8b6540, #7a5530);
-      transform: rotateY(90deg) translateZ(125px) translateX(-35px);
-      transform-origin: left;
-      border-radius: 0 4px 4px 0;
-    }
-    .filebox-left {
-      width: 70px; height: 140px;
-      background: linear-gradient(270deg, #967048, #8b6540);
-      transform: rotateY(-90deg) translateZ(0px) translateX(35px);
-      transform-origin: right;
-      border-radius: 4px 0 0 4px;
-    }
-
-    /* Folder tabs inside box */
-    .folder-tab {
-      position: absolute;
-      left: 12px; right: 12px;
-      height: 28px;
-      border-radius: 3px 8px 0 0;
-      border: 1px solid rgba(0,0,0,0.08);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-      z-index: 1;
-    }
-
-    /* === POLAROID 3D === */
-    .polaroid-stack {
-      position: relative;
-      width: 140px; height: 170px;
-      transform-style: preserve-3d;
-      transform: rotateX(-8deg) rotateY(-20deg);
-    }
-    .polaroid {
-      position: absolute;
-      width: 130px;
-      background: #fff;
-      padding: 6px 6px 28px 6px;
-      box-shadow: 1px 2px 8px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.04);
-    }
-    .polaroid img {
-      display: block; width: 100%; height: 100px; object-fit: cover;
-    }
-    .polaroid-label {
-      font-family: 'VT323', monospace;
-      font-size: 10px;
-      color: #999;
-      text-align: center;
-      margin-top: 4px;
-    }
-
-    /* === ITEM LABELS === */
-    .item-label {
-      font-family: 'VT323', monospace;
-      font-size: 15px;
-      color: #a09080;
-      text-align: center;
-      margin-top: 12px;
-      text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-    }
-
-    /* === OBJECT SHADOWS ON DESK === */
-    .desk-shadow {
-      position: absolute;
-      bottom: -12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: radial-gradient(ellipse, rgba(0,0,0,0.15) 0%, transparent 70%);
-      filter: blur(6px);
-    }
-
-    /* === MODALS === */
-    .modal-backdrop {
-      position: fixed; inset: 0; z-index: 100;
-      background: rgba(10,10,10,0.6);
-      backdrop-filter: blur(6px);
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.35s cubic-bezier(0.33,1,0.68,1);
-    }
-    .modal-backdrop.active { opacity: 1; pointer-events: auto; }
-    .modal-window {
-      position: fixed; z-index: 101; top: 50%; left: 50%;
-      transform: translate(-50%,-50%) scale(0.92);
-      opacity: 0; pointer-events: none;
-      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s;
-    }
-    .modal-window.active { transform: translate(-50%,-50%) scale(1); opacity: 1; pointer-events: auto; }
-
-    .retro-window {
-      background: #e8e0d4;
-      border: 2px solid #888;
-      border-radius: 6px 6px 2px 2px;
-      box-shadow: 2px 3px 14px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.4);
-    }
-    .retro-titlebar {
-      background: linear-gradient(180deg, #aaa, #888);
-      padding: 4px 8px; border-radius: 4px 4px 0 0;
-      display: flex; align-items: center; gap: 6px;
-      cursor: default; user-select: none;
-    }
-    .retro-titlebar .dot { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.2); }
-    .dot-close { background: #ff5f56; cursor: pointer; }
-    .dot-min { background: #ffbd2e; }
-    .dot-max { background: #27c93f; }
-    .retro-titlebar-text { flex:1; text-align:center; font-family:'Inter',sans-serif; font-size:11px; font-weight:600; color:#333; }
-
-    .photo-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
-    .photo-grid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:2px; cursor:pointer; transition: transform 0.25s cubic-bezier(0.33,1,0.68,1); }
-    .photo-grid img:hover { transform: scale(1.04); }
-
-    .file-item { transition: background-color 0.2s, transform 0.2s cubic-bezier(0.33,1,0.68,1); }
-    .file-item:hover { background-color: rgba(74,124,89,0.1); transform: translateX(2px); }
-
-    .modal-nav-link { transition: color 0.2s, transform 0.2s; }
-    .modal-nav-link:hover { transform: translateX(3px); }
-
-    .view-switcher { transition: background-color 0.25s, transform 0.25s, box-shadow 0.25s; }
-    .view-switcher:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-
-    .photo-lightbox {
-      position: fixed; inset: 0; z-index: 200;
-      background: rgba(5,5,5,0.92); backdrop-filter: blur(8px);
+    #panel-close span {
+      width: 32px; height: 32px;
       display: flex; align-items: center; justify-content: center;
-      opacity: 0; pointer-events: none; cursor: zoom-out;
-      transition: opacity 0.3s;
+      border-radius: 50%; background: rgba(0,0,0,0.04);
+      color: #888; font-size: 1.1rem; line-height: 1;
+      transition: background-color 0.2s ease, color 0.2s ease;
     }
-    .photo-lightbox.active { opacity: 1; pointer-events: auto; }
-    .photo-lightbox img { max-width: 88vw; max-height: 88vh; object-fit: contain; transform: scale(0.95); transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1); }
-    .photo-lightbox.active img { transform: scale(1); }
+    #panel-close span:hover { background: rgba(0,0,0,0.08); color: #333; }
+
+    #panel-content { padding: 0 2.5rem 3rem; }
+
+    .pt { font-family: 'Cormorant Garamond', serif; font-size: 1.8rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.2; color: #2d2a26; }
+    .ps { font-size: 0.65rem; color: #8b8680; margin-top: 0.4rem; letter-spacing: 0.04em; }
+    .pd { width: 28px; height: 1.5px; background: #4d6a6d; opacity: 0.3; margin: 1.5rem 0; }
+    .pb { font-size: 0.82rem; line-height: 1.8; color: #555; }
+    .pb + .pb { margin-top: 0.8rem; }
+    .pc { padding: 0.85rem 1rem; border-left: 2px solid #e0dcd5; margin-bottom: 0.6rem; transition: border-color 0.3s ease; }
+    .pc:hover { border-color: #4d6a6d; }
+    .pc h4 { font-family: 'Cormorant Garamond', serif; font-size: 0.95rem; font-weight: 600; margin-bottom: 0.3rem; color: #2d2a26; }
+    .pc p { font-size: 0.72rem; line-height: 1.7; color: #777; }
+    .pdl {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.7rem 1rem; background: rgba(0,0,0,0.02);
+      border: 1px solid rgba(0,0,0,0.06); border-radius: 3px;
+      color: #555; text-decoration: none; font-size: 0.78rem; margin-bottom: 0.5rem;
+      transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+    .pdl:hover { background: rgba(0,0,0,0.04); border-color: rgba(0,0,0,0.1); transform: translateY(-1px); }
+    .pdl:active { transform: translateY(0); }
+    .pdl:focus-visible { outline: 1px solid #4d6a6d; outline-offset: 2px; }
+    .pdl svg { flex-shrink: 0; width: 18px; height: 18px; }
+    .pdl .meta { font-size: 0.6rem; color: #999; }
+    .pgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+    .pgrid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 2px; cursor: pointer; transition: transform 0.3s cubic-bezier(0.33,1,0.68,1); }
+    .pgrid img:hover { transform: scale(1.03); }
+    .p-contact { display: flex; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: #888; margin-top: 1rem; }
+    .p-contact a { color: #4d6a6d; text-decoration: none; transition: color 0.2s ease; }
+    .p-contact a:hover { color: #3a5557; }
+    .p-contact svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .p-profile { width: 100%; max-height: 220px; object-fit: cover; object-position: center 70%; border-radius: 3px; margin-bottom: 1.5rem; }
+
+    #lightbox {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(5,5,5,0.92); backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; cursor: zoom-out; transition: opacity 0.35s ease;
+    }
+    #lightbox.active { opacity: 1; pointer-events: auto; }
+    #lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; transform: scale(0.95); transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+    #lightbox.active img { transform: scale(1); }
 
     @media (max-width: 768px) {
-      .items-layer { flex-direction: column; align-items: center; gap: 30px !important; padding-top: 10px; }
-      .mac-box { transform: rotateX(-8deg) rotateY(-10deg) scale(0.85); }
-      .filebox { transform: rotateX(-8deg) rotateY(10deg) scale(0.85); }
-      .polaroid-stack { transform: rotateX(-5deg) rotateY(-12deg) scale(0.85); }
-      .modal-window { width: 92vw !important; max-height: 85vh !important; }
-      .photo-grid { grid-template-columns: repeat(2,1fr) !important; }
+      #panel { width: 100vw; }
+      #panel-content { padding: 0 1.5rem 3rem; }
+      #header { top: 1rem; left: 1.5rem; }
+      #view-link { top: 1rem; right: 1.5rem; }
+      #nav { gap: 1rem; bottom: 1.5rem; }
+      #nav a { font-size: 0.58rem; }
+      #hint { bottom: 3.8rem; }
     }
   </style>
 </head>
-<body class="font-body text-ink">
+<body>
+  <div id="loader"><h1>Qiye Han</h1><p>Economics &middot; RUC &middot; UChicago</p><div id="loader-bar"></div></div>
+  <canvas id="canvas"></canvas>
+  <div id="vignette"></div>
+  <div id="grain"></div>
 
-  <div class="scene">
-    <!-- Wall -->
-    <div class="wall">
-      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center">
-        <h1 class="font-display text-4xl sm:text-5xl font-bold tracking-tight" style="letter-spacing: -0.03em; color: #5a5347;">Qiye Han</h1>
-        <p class="mt-1.5 text-sm font-medium" style="color: #8b8680;">Economics &middot; RUC &middot; UChicago</p>
-      </div>
-      <a href="index.html" class="view-switcher absolute top-4 right-4 sm:top-6 sm:right-6 inline-flex items-center gap-1.5 bg-white/70 backdrop-blur-sm px-3 py-1.5 rounded-full text-xs font-medium" style="color: #5a5347;">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        Classic View
-      </a>
-    </div>
-
-    <!-- Desk area -->
-    <div class="desk-area">
-      <div class="desk-top"></div>
-      <div class="desk-front"></div>
-
-      <!-- 3D Items floating above desk -->
-      <div class="items-layer">
-
-        <!-- FILE BOX -->
-        <div class="flex flex-col items-center">
-          <div class="sway-2">
-            <div class="object-3d relative" tabindex="0" role="button" aria-label="Open documents" onclick="openModal('files')">
-              <div class="filebox">
-                <div class="filebox-front">
-                  <!-- Folder tabs on front face -->
-                  <div class="folder-tab" style="top: 10px; background: #e8d5a3;">
-                    <span class="font-retro text-xs block pt-1 pl-2" style="color: #7a6840;">CV</span>
-                  </div>
-                  <div class="folder-tab" style="top: 34px; left: 16px; background: #dcc893;">
-                    <span class="font-retro text-xs block pt-1 pl-2" style="color: #7a6840;">Notes</span>
-                  </div>
-                  <div class="folder-tab" style="top: 58px; left: 20px; background: #d4be88;">
-                    <span class="font-retro text-xs block pt-1 pl-2" style="color: #7a6840;">Research</span>
-                  </div>
-                  <!-- Label plate -->
-                  <div class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-cream/90 px-3 py-0.5 rounded-sm" style="border: 1px solid #c9b37a;">
-                    <span class="font-retro text-xs" style="color: #5a4a30;">Documents</span>
-                  </div>
-                </div>
-                <div class="filebox-top"></div>
-                <div class="filebox-right"></div>
-                <div class="filebox-left"></div>
-              </div>
-              <div class="desk-shadow" style="width: 140px; height: 16px;"></div>
-            </div>
-          </div>
-          <p class="item-label">Documents</p>
-        </div>
-
-        <!-- MACINTOSH -->
-        <div class="flex flex-col items-center">
-          <div class="sway-1">
-            <div class="object-3d relative" tabindex="0" role="button" aria-label="Open about" onclick="openModal('computer')">
-              <!-- Mac body -->
-              <div class="mac-box">
-                <!-- Front face -->
-                <div class="mac-face mac-front">
-                  <!-- Vent lines -->
-                  <div class="flex justify-center gap-1.5 pt-3">
-                    <div style="width: 28px; height: 2px; background: #c4b69c; border-radius: 1px;"></div>
-                    <div style="width: 28px; height: 2px; background: #c4b69c; border-radius: 1px;"></div>
-                    <div style="width: 28px; height: 2px; background: #c4b69c; border-radius: 1px;"></div>
-                  </div>
-                  <!-- CRT -->
-                  <div class="crt-bezel">
-                    <div class="crt-screen">
-                      <div class="p-2.5">
-                        <p class="font-retro leading-tight" style="color: #5a8a5c; font-size: 11px;">
-                          <span style="color:#7aba7c;">&gt;</span> Good morning.<br>
-                          <span style="color:#7aba7c;">&gt;</span> I am Qiye Han.<br>
-                          <span style="color:#7aba7c;">&gt;</span> Econ @ RUC,<br>
-                          <span style="color:#7aba7c;">&gt;</span> exchange @ UChicago.<br>
-                          <span style="color:#7aba7c;">&gt;</span> Click to learn more.<br><br>
-                          <span style="animation:blink 1s step-end infinite;color:#7aba7c;">_</span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <!-- Apple logo + label + floppy -->
-                  <div class="flex items-center justify-between mx-auto mt-2.5 px-1" style="width: 160px;">
-                    <div class="flex flex-col" style="width: 14px; gap: 0.5px;">
-                      <div style="height:2.5px;background:#61bb46;border-radius:1px;"></div>
-                      <div style="height:2.5px;background:#fdb827;border-radius:1px;"></div>
-                      <div style="height:2.5px;background:#f5821f;border-radius:1px;"></div>
-                      <div style="height:2.5px;background:#e03a3e;border-radius:1px;"></div>
-                      <div style="height:2.5px;background:#963d97;border-radius:1px;"></div>
-                      <div style="height:2.5px;background:#009ddc;border-radius:1px;"></div>
-                    </div>
-                    <span class="font-retro" style="font-size:9px;color:#a09880;">Macintosh</span>
-                    <div style="width:32px;height:3px;background:#b0a488;border-radius:1px;box-shadow:inset 0 1px 1px rgba(0,0,0,0.2);"></div>
-                  </div>
-                  <!-- Bottom area -->
-                  <div class="mx-auto mt-3" style="width:160px;height:40px;background:linear-gradient(180deg,#d8ccb4,#ccc0a8);border-radius:3px;box-shadow:inset 0 1px 2px rgba(0,0,0,0.06);"></div>
-                </div>
-                <!-- Top face -->
-                <div class="mac-face mac-top">
-                  <!-- Vent slots on top -->
-                  <div class="flex flex-col items-center justify-center h-full gap-1">
-                    <div style="width:80px;height:1.5px;background:rgba(0,0,0,0.06);border-radius:1px;"></div>
-                    <div style="width:80px;height:1.5px;background:rgba(0,0,0,0.06);border-radius:1px;"></div>
-                    <div style="width:80px;height:1.5px;background:rgba(0,0,0,0.06);border-radius:1px;"></div>
-                    <div style="width:80px;height:1.5px;background:rgba(0,0,0,0.06);border-radius:1px;"></div>
-                    <div style="width:80px;height:1.5px;background:rgba(0,0,0,0.06);border-radius:1px;"></div>
-                  </div>
-                </div>
-                <!-- Right side -->
-                <div class="mac-face mac-right"></div>
-                <!-- Left side -->
-                <div class="mac-face mac-left"></div>
-              </div>
-              <!-- Keyboard -->
-              <div class="keyboard-3d">
-                <div class="kb-top">
-                  <div class="flex flex-col gap-0.5 px-3 pt-2">
-                    <svg viewBox="0 0 180 6" style="width:100%;"><defs><rect id="k" width="6" height="4" rx="0.5" fill="#c4b8a4" stroke="#b0a490" stroke-width="0.3"/></defs>
-                    <use href="#k" x="0"/><use href="#k" x="7"/><use href="#k" x="14"/><use href="#k" x="21"/><use href="#k" x="28"/><use href="#k" x="35"/><use href="#k" x="42"/><use href="#k" x="49"/><use href="#k" x="56"/><use href="#k" x="63"/><use href="#k" x="70"/><use href="#k" x="77"/><use href="#k" x="84"/><use href="#k" x="91"/><use href="#k" x="98"/><use href="#k" x="105"/><use href="#k" x="112"/><use href="#k" x="119"/><use href="#k" x="126"/><use href="#k" x="133"/><use href="#k" x="140"/><use href="#k" x="147"/><use href="#k" x="154"/>
-                    </svg>
-                    <svg viewBox="0 0 180 6" style="width:100%;"><use href="#k" x="3"/><use href="#k" x="10"/><use href="#k" x="17"/><use href="#k" x="24"/><use href="#k" x="31"/><use href="#k" x="38"/><use href="#k" x="45"/><use href="#k" x="52"/><use href="#k" x="59"/><use href="#k" x="66"/><use href="#k" x="73"/><use href="#k" x="80"/><use href="#k" x="87"/><use href="#k" x="94"/><use href="#k" x="101"/><use href="#k" x="108"/><use href="#k" x="115"/><use href="#k" x="122"/><use href="#k" x="129"/><use href="#k" x="136"/><use href="#k" x="143"/><use href="#k" x="150"/>
-                    </svg>
-                  </div>
-                </div>
-                <div class="kb-front"></div>
-              </div>
-              <div class="desk-shadow" style="width: 200px; height: 18px; bottom: -20px;"></div>
-            </div>
-          </div>
-          <p class="item-label">About Me</p>
-        </div>
-
-        <!-- POLAROID STACK -->
-        <div class="flex flex-col items-center">
-          <div class="sway-3">
-            <div class="object-3d relative" tabindex="0" role="button" aria-label="Open photography" onclick="openModal('photos')">
-              <div class="polaroid-stack">
-                <div class="polaroid" style="top:20px;left:14px;transform:rotate(8deg) translateZ(0px);">
-                  <img src="Photographs/66845b9c3e353a6dec94e85713746814.jpg" alt="Desert">
-                  <p class="polaroid-label">Desert</p>
-                </div>
-                <div class="polaroid" style="top:10px;left:4px;transform:rotate(-5deg) translateZ(2px);">
-                  <img src="Photographs/fc3cec88b015ad5023ea2425a4ca8a67.jpg" alt="Chicago">
-                  <p class="polaroid-label">Chicago</p>
-                </div>
-                <div class="polaroid" style="top:0;left:8px;transform:rotate(2deg) translateZ(4px);">
-                  <img src="Photographs/3d27986e0423a1bfcaaa8db9ffe083d4.jpg" alt="Dunes">
-                  <p class="polaroid-label">Landscapes</p>
-                </div>
-              </div>
-              <div class="desk-shadow" style="width: 120px; height: 14px; bottom: -16px;"></div>
-            </div>
-          </div>
-          <p class="item-label">Photography</p>
-        </div>
-
-      </div>
+  <div id="ui">
+    <div id="header"><h1>Qiye Han</h1><p>Economics &middot; RUC &middot; UChicago</p></div>
+    <a href="index.html" id="view-link">Classic View</a>
+    <div id="hint">Click an object to explore</div>
+    <div id="nav">
+      <a href="#" data-target="monitor">About</a>
+      <a href="#" data-target="books">Research</a>
+      <a href="#" data-target="folder">Documents</a>
+      <a href="#" data-target="frame">Photography</a>
     </div>
   </div>
 
-  <!-- MODALS -->
-  <div class="modal-backdrop" id="modal-backdrop" onclick="closeAllModals()"></div>
+  <div class="label-3d" id="lbl-monitor">About</div>
+  <div class="label-3d" id="lbl-books">Research</div>
+  <div class="label-3d" id="lbl-folder">Documents</div>
+  <div class="label-3d" id="lbl-frame">Photography</div>
 
-  <!-- Computer Modal -->
-  <div class="modal-window" id="modal-computer" style="width:min(600px,90vw);max-height:85vh;">
-    <div class="retro-window overflow-hidden">
-      <div class="retro-titlebar">
-        <div class="dot dot-close" onclick="closeAllModals()" role="button" aria-label="Close"></div>
-        <div class="dot dot-min"></div><div class="dot dot-max"></div>
-        <span class="retro-titlebar-text">About — Qiye Han</span>
-      </div>
-      <div class="p-6 overflow-y-auto" style="max-height:70vh;background:#f5f0e1;">
-        <div class="flex flex-col sm:flex-row gap-5">
-          <img src="figure.jpg" alt="Qiye Han" class="w-28 h-36 object-cover rounded-sm flex-shrink-0" style="object-position:center 70%;box-shadow:2px 3px 8px rgba(0,0,0,0.12);">
-          <div>
-            <h2 class="font-display text-2xl font-bold" style="letter-spacing:-0.02em;color:#2d2d2d;">Qiye Han</h2>
-            <p class="text-xs font-medium mt-1" style="color:#8b8680;">Economics &middot; Renmin University of China &middot; Exchange at UChicago</p>
-          </div>
-        </div>
-        <div class="mt-5 text-sm leading-relaxed" style="line-height:1.75;color:#3a3a3a;">
-          <p>I am a third-year undergraduate in Economics at Renmin University of China, currently on a one-year exchange at the University of Chicago. My research interests center on how technological innovation shapes investment — from platform design and investor behavior to NLP-enabled measurement in financial research.</p>
-          <p class="mt-3">I have research experience working with Professor Celine Yue Fei on ESG investment and platform nudges, and with Professor Ziteng Lei on representation learning and embeddings. I am ranked in the top 5% of my cohort and aspire to pursue a PhD in Finance or Economics.</p>
-        </div>
-        <h3 class="font-display text-lg font-semibold mt-6 mb-2" style="color:#2d2d2d;">Research Interests</h3>
-        <ul class="text-sm space-y-2" style="color:#3a3a3a;line-height:1.65;">
-          <li class="flex items-start gap-2"><span style="color:#4a7c59;">&#9654;</span> Platform Design & Investor Behavior — ESG investment, behavioral nudges</li>
-          <li class="flex items-start gap-2"><span style="color:#4a7c59;">&#9654;</span> NLP & Computational Finance — embeddings, LLMs, asset pricing</li>
-          <li class="flex items-start gap-2"><span style="color:#4a7c59;">&#9654;</span> Behavioral & Experimental Economics — RCTs, DiD, causal forests</li>
-          <li class="flex items-start gap-2"><span style="color:#4a7c59;">&#9654;</span> Economic Theory & Modeling — dynamic equilibrium, fintech</li>
-        </ul>
-        <div class="mt-5 flex items-center gap-2 text-xs" style="color:#8b8680;">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
-          <a href="mailto:hanqiye3@gmail.com" class="hover:underline">hanqiye3@gmail.com</a>
-        </div>
-        <div class="mt-6 pt-4 border-t flex flex-wrap gap-4 text-xs font-medium" style="border-color:#d8d0c4;">
-          <button onclick="switchModal('files')" class="modal-nav-link flex items-center gap-1" style="color:#8b6c50;">&#128193; My Documents &rarr;</button>
-          <button onclick="switchModal('photos')" class="modal-nav-link flex items-center gap-1" style="color:#4a7c59;">&#128247; Photography &rarr;</button>
-        </div>
-      </div>
-    </div>
+  <div id="panel">
+    <button id="panel-close" aria-label="Close"><span>&times;</span></button>
+    <div id="panel-content"></div>
   </div>
 
-  <!-- Files Modal -->
-  <div class="modal-window" id="modal-files" style="width:min(480px,90vw);max-height:85vh;">
-    <div class="retro-window overflow-hidden">
-      <div class="retro-titlebar">
-        <div class="dot dot-close" onclick="closeAllModals()" role="button" aria-label="Close"></div>
-        <div class="dot dot-min"></div><div class="dot dot-max"></div>
-        <span class="retro-titlebar-text">Documents</span>
-      </div>
-      <div class="p-5 overflow-y-auto" style="max-height:70vh;background:#f5f0e1;">
-        <p class="text-xs mb-4" style="color:#8b8680;">Click a file to download.</p>
-        <h3 class="font-retro text-base mb-2" style="color:#5a4a30;">Academic</h3>
-        <a href="Qiye_Han_CV (3).pdf" download class="file-item flex items-center gap-3 px-3 py-2.5 rounded-sm mb-4" style="border:1px solid #d8d0c4;">
-          <svg class="w-5 h-5 flex-shrink-0" style="color:#c67a4a;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
-          <div><p class="text-sm font-medium" style="color:#2d2d2d;">Curriculum Vitae</p><p class="text-xs" style="color:#8b8680;">PDF</p></div>
-        </a>
-        <h3 class="font-retro text-base mb-2" style="color:#5a4a30;">Course Notes</h3>
-        <a href="Real_Analysis_Notes.pdf" download class="file-item flex items-center gap-3 px-3 py-2.5 rounded-sm mb-4" style="border:1px solid #d8d0c4;">
-          <svg class="w-5 h-5 flex-shrink-0" style="color:#4a7c59;" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
-          <div><p class="text-sm font-medium" style="color:#2d2d2d;">Real Analysis Notes</p><p class="text-xs" style="color:#8b8680;">PDF</p></div>
-        </a>
-        <div class="mt-4 pt-4 border-t flex flex-wrap gap-4 text-xs font-medium" style="border-color:#d8d0c4;">
-          <button onclick="switchModal('computer')" class="modal-nav-link" style="color:#5a5347;">&#128187; About Me &rarr;</button>
-          <button onclick="switchModal('photos')" class="modal-nav-link" style="color:#4a7c59;">&#128247; Photography &rarr;</button>
-        </div>
-      </div>
-    </div>
+  <div id="lightbox" onclick="closeLightbox()">
+    <img id="lightbox-img" src="" alt="Enlarged photograph">
   </div>
 
-  <!-- Photos Modal -->
-  <div class="modal-window" id="modal-photos" style="width:min(560px,90vw);max-height:85vh;">
-    <div class="retro-window overflow-hidden">
-      <div class="retro-titlebar">
-        <div class="dot dot-close" onclick="closeAllModals()" role="button" aria-label="Close"></div>
-        <div class="dot dot-min"></div><div class="dot dot-max"></div>
-        <span class="retro-titlebar-text">Photography</span>
-      </div>
-      <div class="p-5 overflow-y-auto" style="max-height:70vh;background:#f5f0e1;">
-        <p class="text-xs mb-4" style="color:#8b8680;">Click to enlarge.</p>
-        <div class="photo-grid">
-          <img src="Photographs/3d27986e0423a1bfcaaa8db9ffe083d4.jpg" alt="Sand dunes" onclick="openPhoto(this)" tabindex="0">
-          <img src="Photographs/70e6c77c9037209f624da647672f3ead.jpg" alt="Chicago Board of Trade" onclick="openPhoto(this)" tabindex="0">
-          <img src="Photographs/3f28cbf20352de54b14b591a2960e131.jpg" alt="Tropical beach" onclick="openPhoto(this)" tabindex="0">
-          <img src="Photographs/fc3cec88b015ad5023ea2425a4ca8a67.jpg" alt="Federal Reserve Bank" onclick="openPhoto(this)" tabindex="0">
-          <img src="Photographs/66845b9c3e353a6dec94e85713746814.jpg" alt="Desert walker" onclick="openPhoto(this)" tabindex="0">
-          <img src="Photographs/722c10e42e728427f4ec53249836656a.jpg" alt="Sculpture" onclick="openPhoto(this)" tabindex="0">
-        </div>
-        <div class="mt-5 pt-4 border-t flex flex-wrap gap-4 text-xs font-medium" style="border-color:#d8d0c4;">
-          <button onclick="switchModal('computer')" class="modal-nav-link" style="color:#5a5347;">&#128187; About Me &rarr;</button>
-          <button onclick="switchModal('files')" class="modal-nav-link" style="color:#8b6c50;">&#128193; Documents &rarr;</button>
-        </div>
-      </div>
-    </div>
-  </div>
+  <script type="module">
+    import * as THREE from 'three';
 
-  <div class="photo-lightbox" id="photo-lightbox" onclick="closePhoto()">
-    <img src="" alt="Enlarged photograph" id="lightbox-photo">
-  </div>
+    // ===================== CONFIG =====================
+    const DESK_Y = 0.0;
+    const CAM_DEFAULT = new THREE.Vector3(0, 2.6, 4.5);
+    const LOOK_DEFAULT = new THREE.Vector3(0, 0.5, -0.3);
+    const OBJECTS_META = {
+      monitor: {
+        cam: new THREE.Vector3(0.15, 1.8, 2.4),
+        look: new THREE.Vector3(0.15, 1.0, -0.3),
+        label: document.getElementById('lbl-monitor'),
+        labelOffset: new THREE.Vector3(0, 2.2, 0)
+      },
+      books: {
+        cam: new THREE.Vector3(-1.5, 1.4, 2.3),
+        look: new THREE.Vector3(-1.6, 0.3, 0.1),
+        label: document.getElementById('lbl-books'),
+        labelOffset: new THREE.Vector3(0, 0.9, 0)
+      },
+      folder: {
+        cam: new THREE.Vector3(1.6, 1.2, 2.0),
+        look: new THREE.Vector3(1.5, 0.15, 0.0),
+        label: document.getElementById('lbl-folder'),
+        labelOffset: new THREE.Vector3(0, 0.6, 0)
+      },
+      frame: {
+        cam: new THREE.Vector3(-1.0, 1.8, 1.8),
+        look: new THREE.Vector3(-1.1, 1.5, -1.9),
+        label: document.getElementById('lbl-frame'),
+        labelOffset: new THREE.Vector3(0, 0.8, 0)
+      }
+    };
 
-  <script>
-    const backdrop = document.getElementById('modal-backdrop');
-    const modals = { computer: document.getElementById('modal-computer'), files: document.getElementById('modal-files'), photos: document.getElementById('modal-photos') };
-    function openModal(n) { closeAllModals(); setTimeout(() => { backdrop.classList.add('active'); modals[n].classList.add('active'); }, 10); }
-    function closeAllModals() { backdrop.classList.remove('active'); Object.values(modals).forEach(m => m.classList.remove('active')); }
-    function switchModal(n) { Object.values(modals).forEach(m => m.classList.remove('active')); setTimeout(() => modals[n].classList.add('active'), 150); }
-    function openPhoto(img) { event.stopPropagation(); document.getElementById('lightbox-photo').src = img.src; document.getElementById('photo-lightbox').classList.add('active'); }
-    function closePhoto() { document.getElementById('photo-lightbox').classList.remove('active'); }
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.getElementById('photo-lightbox').classList.contains('active') ? closePhoto() : closeAllModals(); } });
+    // ===================== SCENE =====================
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xd5cfc5);
+    scene.fog = new THREE.FogExp2(0xd5cfc5, 0.04);
+
+    const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
+    camera.position.copy(CAM_DEFAULT);
+    const currentLookAt = LOOK_DEFAULT.clone();
+    camera.lookAt(currentLookAt);
+
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.8;
+    const clock = new THREE.Clock();
+
+    // ===================== LIGHTS =====================
+    // Bright warm ambient
+    const ambient = new THREE.AmbientLight(0xfff8ee, 1.2);
+    scene.add(ambient);
+
+    // Hemisphere (sky warm, ground cool)
+    const hemi = new THREE.HemisphereLight(0xffeedd, 0x8899aa, 0.8);
+    scene.add(hemi);
+
+    // Main sunlight from upper-right-back (window light)
+    const sun = new THREE.DirectionalLight(0xfff5e0, 3.5);
+    sun.position.set(3, 5, -1);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.near = 0.5;
+    sun.shadow.camera.far = 15;
+    sun.shadow.camera.left = -5;
+    sun.shadow.camera.right = 5;
+    sun.shadow.camera.top = 5;
+    sun.shadow.camera.bottom = -2;
+    sun.shadow.bias = -0.0002;
+    scene.add(sun);
+
+    // Soft fill from left
+    const fill = new THREE.DirectionalLight(0xddeeff, 1.0);
+    fill.position.set(-3, 3, 2);
+    scene.add(fill);
+
+    // Screen glow
+    const screenGlow = new THREE.PointLight(0xaabbcc, 1.5, 3, 2);
+    screenGlow.position.set(0.15, 1.3, 0.4);
+    scene.add(screenGlow);
+
+    // ===================== MATERIALS =====================
+    const beigeMat = new THREE.MeshStandardMaterial({ color: 0xe8dcc8, roughness: 0.55, metalness: 0.02 });
+    const beigeDarkMat = new THREE.MeshStandardMaterial({ color: 0xd8ccb4, roughness: 0.6, metalness: 0.02 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0xb89878, roughness: 0.6, metalness: 0.05 });
+    const wallMat = new THREE.MeshStandardMaterial({ color: 0xe0d8cc, roughness: 0.9 });
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xc0a888, roughness: 0.7, metalness: 0.05 });
+
+    // ===================== ENVIRONMENT =====================
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.6;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(14, 6), wallMat);
+    wall.position.set(0, 2.2, -2.2);
+    wall.receiveShadow = true;
+    scene.add(wall);
+
+    // Desk
+    const deskGeo = new THREE.BoxGeometry(5, 0.1, 2.8);
+    const desk = new THREE.Mesh(deskGeo, woodMat);
+    desk.position.set(0, DESK_Y, -0.2);
+    desk.castShadow = true;
+    desk.receiveShadow = true;
+    scene.add(desk);
+
+    // Desk apron
+    const apronMat = new THREE.MeshStandardMaterial({ color: 0xa08060, roughness: 0.65, metalness: 0.05 });
+    const apron = new THREE.Mesh(new THREE.BoxGeometry(5, 0.12, 0.05), apronMat);
+    apron.position.set(0, -0.05, 1.17);
+    scene.add(apron);
+
+    // Desk legs
+    const legGeo = new THREE.BoxGeometry(0.08, 0.55, 0.08);
+    [[-2.3, -0.33, 1.1], [2.3, -0.33, 1.1], [-2.3, -0.33, -1.35], [2.3, -0.33, -1.35]].forEach(p => {
+      const leg = new THREE.Mesh(legGeo, woodMat);
+      leg.position.set(...p);
+      leg.castShadow = true;
+      scene.add(leg);
+    });
+
+    // ===================== MAC SCREEN CANVAS =====================
+    const SCR_W = 512, SCR_H = 384;
+    const screenCanvas = document.createElement('canvas');
+    screenCanvas.width = SCR_W; screenCanvas.height = SCR_H;
+    const sCtx = screenCanvas.getContext('2d');
+    const screenTex = new THREE.CanvasTexture(screenCanvas);
+    screenTex.minFilter = THREE.LinearFilter;
+    let screenMode = 'idle';
+    let cursorBlink = true;
+
+    function wrapText(ctx, text, x, y, maxW, lh) {
+      const words = text.split(' ');
+      let line = '', ly = y;
+      for (const w of words) {
+        const t = line + w + ' ';
+        if (ctx.measureText(t).width > maxW && line) {
+          ctx.fillText(line.trim(), x, ly); line = w + ' '; ly += lh;
+        } else { line = t; }
+      }
+      ctx.fillText(line.trim(), x, ly);
+      return ly + lh;
+    }
+
+    function drawMenuBar() {
+      sCtx.fillStyle = '#fff';
+      sCtx.fillRect(0, 0, SCR_W, 19);
+      sCtx.strokeStyle = '#000';
+      sCtx.lineWidth = 1;
+      sCtx.beginPath(); sCtx.moveTo(0, 19.5); sCtx.lineTo(SCR_W, 19.5); sCtx.stroke();
+      sCtx.fillStyle = '#000';
+      sCtx.font = 'bold 12px Helvetica, Arial, sans-serif';
+      sCtx.fillText('\u2318', 8, 14);
+      sCtx.font = '11px Helvetica, Arial, sans-serif';
+      sCtx.fillText('File', 30, 13);
+      sCtx.fillText('Edit', 62, 13);
+      sCtx.fillText('View', 96, 13);
+      sCtx.fillText('Special', 134, 13);
+    }
+
+    function drawWin(x, y, w, h, title, fn) {
+      // Shadow
+      sCtx.fillStyle = 'rgba(0,0,0,0.12)';
+      sCtx.fillRect(x + 2, y + 2, w, h);
+      // Body
+      sCtx.fillStyle = '#fff';
+      sCtx.fillRect(x, y, w, h);
+      sCtx.strokeStyle = '#000';
+      sCtx.lineWidth = 1;
+      sCtx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      // Title bar stripes
+      for (let ly = y + 3; ly < y + 17; ly += 2) {
+        sCtx.fillStyle = '#000';
+        sCtx.fillRect(x + 22, ly, w - 44, 1);
+      }
+      // Title bg
+      sCtx.font = 'bold 10px Helvetica, Arial, sans-serif';
+      const tw = sCtx.measureText(title).width + 12;
+      sCtx.fillStyle = '#fff';
+      sCtx.fillRect(x + w / 2 - tw / 2, y + 1, tw, 17);
+      // Title text
+      sCtx.fillStyle = '#000';
+      sCtx.textAlign = 'center';
+      sCtx.fillText(title, x + w / 2, y + 13);
+      sCtx.textAlign = 'left';
+      // Close box
+      sCtx.strokeRect(x + 6, y + 4, 10, 10);
+      // Divider
+      sCtx.beginPath(); sCtx.moveTo(x, y + 19.5); sCtx.lineTo(x + w, y + 19.5); sCtx.stroke();
+      // Content
+      sCtx.save();
+      sCtx.beginPath(); sCtx.rect(x + 2, y + 21, w - 4, h - 23); sCtx.clip();
+      fn(x + 8, y + 30, w - 16, h - 36);
+      sCtx.restore();
+    }
+
+    function drawDesktopIcons() {
+      const icons = [
+        { x: 448, y: 50, label: 'Research' },
+        { x: 448, y: 120, label: 'Documents' },
+        { x: 448, y: 190, label: 'Photos' },
+      ];
+      icons.forEach(({ x, y, label }) => {
+        // Folder icon
+        sCtx.fillStyle = '#fff';
+        sCtx.fillRect(x - 14, y, 28, 22);
+        sCtx.strokeStyle = '#000';
+        sCtx.strokeRect(x - 14, y, 28, 22);
+        sCtx.fillRect(x - 14, y - 5, 14, 6);
+        sCtx.strokeRect(x - 14, y - 5, 14, 6);
+        // Label
+        sCtx.fillStyle = '#000';
+        sCtx.font = '9px Helvetica, Arial, sans-serif';
+        sCtx.textAlign = 'center';
+        sCtx.fillText(label, x, y + 36);
+      });
+      sCtx.textAlign = 'left';
+    }
+
+    function updateScreen(mode) {
+      screenMode = mode;
+      // Desktop bg
+      sCtx.fillStyle = '#6088a8';
+      sCtx.fillRect(0, 0, SCR_W, SCR_H);
+      // Subtle pattern
+      sCtx.fillStyle = 'rgba(255,255,255,0.03)';
+      for (let py = 0; py < SCR_H; py += 2) for (let px = (py % 4 === 0 ? 0 : 1); px < SCR_W; px += 2) sCtx.fillRect(px, py, 1, 1);
+
+      drawMenuBar();
+
+      switch (mode) {
+        case 'idle':
+          drawWin(20, 35, 380, 220, 'Welcome', (cx, cy, cw) => {
+            sCtx.fillStyle = '#000';
+            sCtx.font = 'bold 14px Helvetica, Arial, sans-serif';
+            sCtx.fillText('Hello, I\'m Qiye Han.', cx, cy + 6);
+            sCtx.font = '11px Helvetica, Arial, sans-serif';
+            sCtx.fillStyle = '#444';
+            sCtx.fillText('Economics @ RUC \u00B7 Exchange @ UChicago', cx, cy + 26);
+            sCtx.fillStyle = '#000';
+            sCtx.fillRect(cx, cy + 36, 30, 1);
+            sCtx.font = '10px Helvetica, Arial, sans-serif';
+            wrapText(sCtx, 'My research interests center on how technological innovation shapes investment \u2014 from platform design and investor behavior to NLP-enabled measurement in financial research.', cx, cy + 55, cw - 8, 14);
+            sCtx.fillStyle = '#666';
+            sCtx.font = '10px Helvetica, Arial, sans-serif';
+            sCtx.fillText('Click any object on the desk to explore.', cx, cy + 140);
+            if (cursorBlink) { sCtx.fillStyle = '#000'; sCtx.fillRect(cx + 245, cy + 131, 6, 11); }
+          });
+          drawDesktopIcons();
+          break;
+        case 'about':
+          drawWin(10, 25, 490, 340, 'About \u2014 Qiye Han', (cx, cy, cw) => {
+            sCtx.fillStyle = '#000';
+            sCtx.font = 'bold 13px Helvetica, Arial, sans-serif';
+            sCtx.fillText('Qiye Han', cx, cy + 6);
+            sCtx.font = '10px Helvetica, Arial, sans-serif';
+            sCtx.fillStyle = '#666';
+            sCtx.fillText('Economics \u00B7 Renmin University of China \u00B7 UChicago', cx, cy + 22);
+            sCtx.fillStyle = '#000';
+            sCtx.fillRect(cx, cy + 30, 30, 1);
+            sCtx.font = '10px Helvetica, Arial, sans-serif';
+            const y2 = wrapText(sCtx, 'Third-year undergraduate in Economics at Renmin University of China, on a one-year exchange at UChicago. Research interests in fintech, behavioral economics, and NLP-enabled finance.', cx, cy + 48, cw - 8, 13);
+            wrapText(sCtx, 'Research experience with Prof. Celine Yue Fei on ESG investment and platform nudges, and Prof. Ziteng Lei on representation learning. Top 5% of cohort. Aspiring PhD in Finance/Econ.', cx, y2 + 8, cw - 8, 13);
+            sCtx.fillStyle = '#666';
+            sCtx.fillText('\u2709 hanqiye3@gmail.com', cx, cy + 200);
+          });
+          break;
+        case 'research':
+          drawWin(10, 25, 490, 340, 'Research Interests', (cx, cy, cw) => {
+            const topics = [
+              ['Platform Design & Investor Behavior', 'ESG investment on fintech platforms, behavioral nudges, substitution effects.'],
+              ['NLP & Computational Finance', 'Embeddings, LLMs, asset pricing, representation learning.'],
+              ['Behavioral & Experimental Economics', 'RCTs, DiD, event studies, causal forests for policy evaluation.'],
+              ['Economic Theory & Modeling', 'Dynamic equilibrium, intertemporal allocation, fintech market structure.'],
+            ];
+            let ty = cy;
+            topics.forEach(([t, d]) => {
+              sCtx.fillStyle = '#000';
+              sCtx.font = 'bold 10px Helvetica, Arial, sans-serif';
+              sCtx.fillText('\u25B6 ' + t, cx, ty + 6);
+              sCtx.fillStyle = '#555';
+              sCtx.font = '9px Helvetica, Arial, sans-serif';
+              ty = wrapText(sCtx, d, cx + 12, ty + 20, cw - 24, 12);
+              ty += 10;
+            });
+          });
+          break;
+        case 'documents':
+          drawWin(30, 40, 440, 250, 'Documents', (cx, cy, cw) => {
+            // File icons
+            [[cx, cy + 10, 'Curriculum Vitae.pdf'], [cx, cy + 60, 'Real Analysis Notes.pdf']].forEach(([fx, fy, name]) => {
+              // Doc icon
+              sCtx.fillStyle = '#fff';
+              sCtx.fillRect(fx, fy, 22, 28);
+              sCtx.strokeStyle = '#000';
+              sCtx.strokeRect(fx, fy, 22, 28);
+              // Corner fold
+              sCtx.beginPath(); sCtx.moveTo(fx + 15, fy); sCtx.lineTo(fx + 22, fy + 7); sCtx.lineTo(fx + 15, fy + 7); sCtx.closePath();
+              sCtx.fillStyle = '#ddd'; sCtx.fill(); sCtx.stroke();
+              // Name
+              sCtx.fillStyle = '#000';
+              sCtx.font = '10px Helvetica, Arial, sans-serif';
+              sCtx.fillText(name, fx + 30, fy + 18);
+            });
+            sCtx.fillStyle = '#888';
+            sCtx.font = '9px Helvetica, Arial, sans-serif';
+            sCtx.fillText('2 items', cx, cy + 120);
+          });
+          break;
+        case 'photos':
+          drawWin(10, 25, 490, 340, 'Photography', (cx, cy, cw) => {
+            sCtx.fillStyle = '#000';
+            sCtx.font = '10px Helvetica, Arial, sans-serif';
+            sCtx.fillText('A selection of photographs from travels and daily life.', cx, cy + 8);
+            // Thumbnail placeholders
+            const cols = 3, size = 80, gap = 8;
+            for (let i = 0; i < 6; i++) {
+              const col = i % cols, row = Math.floor(i / cols);
+              const tx = cx + col * (size + gap), ty = cy + 24 + row * (size + gap);
+              sCtx.fillStyle = '#ccc';
+              sCtx.fillRect(tx, ty, size, size);
+              sCtx.strokeStyle = '#999';
+              sCtx.strokeRect(tx, ty, size, size);
+              // Landscape icon placeholder
+              sCtx.fillStyle = '#aaa';
+              sCtx.beginPath(); sCtx.moveTo(tx + 10, ty + size - 15); sCtx.lineTo(tx + 35, ty + 30); sCtx.lineTo(tx + 55, ty + 50); sCtx.lineTo(tx + size - 10, ty + size - 15); sCtx.closePath(); sCtx.fill();
+            }
+          });
+          break;
+      }
+      // Scanlines
+      sCtx.fillStyle = 'rgba(0,0,0,0.015)';
+      for (let sy = 0; sy < SCR_H; sy += 2) sCtx.fillRect(0, sy, SCR_W, 1);
+      screenTex.needsUpdate = true;
+    }
+
+    // Initial draw
+    updateScreen('idle');
+    setInterval(() => { cursorBlink = !cursorBlink; if (screenMode === 'idle') updateScreen('idle'); }, 600);
+
+    // ===================== INTERACTIVE OBJECTS =====================
+    const interactiveObjects = [];
+    const objectGroups = {};
+    const textureLoader = new THREE.TextureLoader();
+
+    // --- MACINTOSH ---
+    function buildMonitor() {
+      const g = new THREE.Group();
+      // Main body (proper Mac proportions)
+      const bodyW = 1.4, bodyH = 1.85, bodyD = 1.3;
+      const body = new THREE.Mesh(new THREE.BoxGeometry(bodyW, bodyH, bodyD), beigeMat.clone());
+      body.position.y = bodyH / 2;
+      body.castShadow = true;
+      body.receiveShadow = true;
+      g.add(body);
+
+      // Screen bezel (dark inset)
+      const bezelW = 1.08, bezelH = 0.78;
+      const bezel = new THREE.Mesh(
+        new THREE.BoxGeometry(bezelW, bezelH, 0.04),
+        new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.95 })
+      );
+      bezel.position.set(0, 1.18, bodyD / 2 - 0.01);
+      g.add(bezel);
+
+      // Screen (Mac OS canvas)
+      const screen = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.96, 0.68),
+        new THREE.MeshStandardMaterial({ map: screenTex, emissiveMap: screenTex, emissive: 0xffffff, emissiveIntensity: 1.5, roughness: 0.3, metalness: 0.0 })
+      );
+      screen.position.set(0, 1.18, bodyD / 2 + 0.025);
+      g.add(screen);
+
+      // Vent lines at top
+      for (let i = -2; i <= 2; i++) {
+        const vent = new THREE.Mesh(
+          new THREE.BoxGeometry(0.22, 0.015, 0.01),
+          new THREE.MeshStandardMaterial({ color: 0xc4b8a0 })
+        );
+        vent.position.set(i * 0.25, bodyH - 0.1, bodyD / 2 + 0.005);
+        g.add(vent);
+      }
+
+      // Apple rainbow logo area (colored stripes)
+      const logoX = -0.42, logoY = 0.52;
+      const logoColors = [0x61bb46, 0xfdb827, 0xf5821f, 0xe03a3e, 0x963d97, 0x009ddc];
+      logoColors.forEach((c, i) => {
+        const stripe = new THREE.Mesh(
+          new THREE.BoxGeometry(0.06, 0.018, 0.005),
+          new THREE.MeshStandardMaterial({ color: c })
+        );
+        stripe.position.set(logoX, logoY - i * 0.02, bodyD / 2 + 0.005);
+        g.add(stripe);
+      });
+
+      // "Macintosh" label
+      const labelCanvas = document.createElement('canvas');
+      labelCanvas.width = 128; labelCanvas.height = 16;
+      const lCtx = labelCanvas.getContext('2d');
+      lCtx.fillStyle = '#c0b498';
+      lCtx.font = '10px Helvetica, Arial, sans-serif';
+      lCtx.fillText('Macintosh', 4, 11);
+      const labelTex = new THREE.CanvasTexture(labelCanvas);
+      const label = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.35, 0.05),
+        new THREE.MeshStandardMaterial({ map: labelTex, transparent: true })
+      );
+      label.position.set(0, 0.52, bodyD / 2 + 0.005);
+      g.add(label);
+
+      // Floppy drive slot
+      const floppy = new THREE.Mesh(
+        new THREE.BoxGeometry(0.38, 0.028, 0.012),
+        new THREE.MeshStandardMaterial({ color: 0xb0a488, roughness: 0.7 })
+      );
+      floppy.position.set(0.25, 0.52, bodyD / 2 + 0.005);
+      g.add(floppy);
+
+      // Bottom compartment (slightly darker)
+      const btm = new THREE.Mesh(
+        new THREE.BoxGeometry(bodyW - 0.12, 0.36, bodyD - 0.08),
+        beigeDarkMat.clone()
+      );
+      btm.position.set(0, 0.18, -0.01);
+      btm.castShadow = true;
+      g.add(btm);
+
+      g.position.set(0.15, DESK_Y + 0.05, -0.3);
+      return g;
+    }
+
+    // --- KEYBOARD ---
+    function buildKeyboard() {
+      const g = new THREE.Group();
+      // Body
+      const kbBody = new THREE.Mesh(
+        new THREE.BoxGeometry(1.8, 0.04, 0.65),
+        beigeDarkMat.clone()
+      );
+      kbBody.castShadow = true;
+      g.add(kbBody);
+      // Key rows (drawn on canvas texture)
+      const kCanvas = document.createElement('canvas');
+      kCanvas.width = 256; kCanvas.height = 96;
+      const kCtx = kCanvas.getContext('2d');
+      kCtx.fillStyle = '#d0c4ac';
+      kCtx.fillRect(0, 0, 256, 96);
+      kCtx.fillStyle = '#c0b498';
+      // Draw key rows
+      const rows = [14, 14, 13, 12, 8];
+      const rowH = 14, gap = 2, startY = 6;
+      rows.forEach((keys, r) => {
+        const rowW = (256 - 16) / 14;
+        const totalW = keys * rowW;
+        const sx = (256 - totalW) / 2;
+        for (let k = 0; k < keys; k++) {
+          const kw = (r === 4 && k === 4) ? rowW * 4.5 : rowW - gap;
+          const kx = sx + k * rowW + (r === 4 && k > 4 ? rowW * 3.5 : 0);
+          kCtx.fillStyle = '#bbb0a0';
+          kCtx.fillRect(kx, startY + r * (rowH + gap), kw, rowH);
+          kCtx.fillStyle = '#a89880';
+          kCtx.fillRect(kx, startY + r * (rowH + gap) + rowH - 2, kw, 2);
+        }
+      });
+      const kTex = new THREE.CanvasTexture(kCanvas);
+      const keysPlane = new THREE.Mesh(
+        new THREE.PlaneGeometry(1.76, 0.62),
+        new THREE.MeshStandardMaterial({ map: kTex, roughness: 0.7 })
+      );
+      keysPlane.rotation.x = -Math.PI / 2;
+      keysPlane.position.y = 0.025;
+      g.add(keysPlane);
+
+      g.position.set(0.15, DESK_Y + 0.05, 0.65);
+      g.rotation.x = -0.05;
+      return g;
+    }
+
+    // --- MOUSE ---
+    function buildMouse() {
+      const g = new THREE.Group();
+      const mouseMat = new THREE.MeshStandardMaterial({ color: 0xe0d4c0, roughness: 0.5, metalness: 0.02 });
+      // Body
+      const body = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.1, 0.38), mouseMat);
+      body.position.y = 0.05;
+      body.castShadow = true;
+      g.add(body);
+      // Button
+      const btn = new THREE.Mesh(
+        new THREE.BoxGeometry(0.22, 0.005, 0.16),
+        new THREE.MeshStandardMaterial({ color: 0xd4c8b0, roughness: 0.6 })
+      );
+      btn.position.set(0, 0.105, -0.06);
+      g.add(btn);
+      // Cable (thin cylinder)
+      const cable = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.008, 0.008, 0.5, 6),
+        new THREE.MeshStandardMaterial({ color: 0xc0b498 })
+      );
+      cable.rotation.x = Math.PI / 2;
+      cable.position.set(0, 0.05, -0.43);
+      g.add(cable);
+
+      g.position.set(1.0, DESK_Y + 0.05, 0.6);
+      return g;
+    }
+
+    // --- BOOKS ---
+    function buildBooks() {
+      const g = new THREE.Group();
+      const colors = [0x6b3a2a, 0x2d5a4e, 0x4a3b6c, 0x9b7820];
+      for (let i = 0; i < 4; i++) {
+        const mat = new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.78 });
+        const book = new THREE.Mesh(new THREE.BoxGeometry(0.75 + Math.random() * 0.12, 0.11, 0.95), mat);
+        book.position.set((Math.random() - 0.5) * 0.05, i * 0.12, (Math.random() - 0.5) * 0.03);
+        book.rotation.y = (Math.random() - 0.5) * 0.06;
+        book.castShadow = true;
+        g.add(book);
+      }
+      g.position.set(-1.5, DESK_Y + 0.05, 0.3);
+      return g;
+    }
+
+    // --- FOLDER ---
+    function buildFolder() {
+      const g = new THREE.Group();
+      const fMat = new THREE.MeshStandardMaterial({ color: 0xc9a96e, roughness: 0.65 });
+      const folder = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.04, 1.05), fMat);
+      folder.castShadow = true;
+      g.add(folder);
+      const tab = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.12), fMat);
+      tab.position.set(-0.15, 0.04, -0.46);
+      g.add(tab);
+      const paper = new THREE.Mesh(
+        new THREE.BoxGeometry(0.75, 0.008, 0.5),
+        new THREE.MeshStandardMaterial({ color: 0xfaf5ea, roughness: 0.9 })
+      );
+      paper.position.set(0.04, 0.025, -0.25);
+      paper.rotation.y = 0.02;
+      g.add(paper);
+      g.position.set(1.5, DESK_Y + 0.05, 0.15);
+      return g;
+    }
+
+    // --- PHOTO FRAME (wall) ---
+    function buildFrame() {
+      const g = new THREE.Group();
+      const fMat = new THREE.MeshStandardMaterial({ color: 0x5a4d40, roughness: 0.4, metalness: 0.3 });
+      const tw = 0.06, fw = 1.0, fh = 1.25;
+      [[0, fh / 2, fw, tw], [0, -fh / 2, fw, tw], [-fw / 2 + tw / 2, 0, tw, fh + tw], [fw / 2 - tw / 2, 0, tw, fh + tw]]
+        .forEach(([x, y, w, h]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, tw), fMat); b.position.set(x, y, 0); b.castShadow = true; g.add(b); });
+      const tex = textureLoader.load('Photographs/3d27986e0423a1bfcaaa8db9ffe083d4.jpg');
+      const photo = new THREE.Mesh(
+        new THREE.PlaneGeometry(fw - tw * 2, fh - tw * 2),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 })
+      );
+      photo.position.z = 0.02;
+      g.add(photo);
+      g.position.set(-1.1, 1.55, -2.15);
+      return g;
+    }
+
+    // --- LAMP ---
+    function buildLamp() {
+      const g = new THREE.Group();
+      const mMat = new THREE.MeshStandardMaterial({ color: 0x333, roughness: 0.3, metalness: 0.8 });
+      g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.03, 16), mMat));
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.6, 8), mMat);
+      arm.position.y = 0.3; g.add(arm);
+      const shade = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.16, 16, 1, true),
+        new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.6, metalness: 0.4 }));
+      shade.position.y = 0.58; shade.rotation.x = Math.PI; g.add(shade);
+      const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.035, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xffeedd, emissive: 0xffaa55, emissiveIntensity: 2 }));
+      bulb.position.y = 0.52; g.add(bulb);
+      g.position.set(-2.0, DESK_Y + 0.05, -0.5);
+      return g;
+    }
+    // Lamp light
+    const lampLight = new THREE.PointLight(0xffcc88, 2, 4, 2);
+    lampLight.position.set(-2.0, 0.6, -0.5);
+    scene.add(lampLight);
+
+    // Build all
+    const monitorGroup = buildMonitor();
+    const keyboardGroup = buildKeyboard();
+    const mouseGroup = buildMouse();
+    const booksGroup = buildBooks();
+    const folderGroup = buildFolder();
+    const frameGroup = buildFrame();
+    const lampGroup = buildLamp();
+    scene.add(monitorGroup, keyboardGroup, mouseGroup, booksGroup, folderGroup, frameGroup, lampGroup);
+    objectGroups.monitor = monitorGroup;
+    objectGroups.books = booksGroup;
+    objectGroups.folder = folderGroup;
+    objectGroups.frame = frameGroup;
+
+    function collectMeshes(group, name) {
+      group.traverse(child => { if (child.isMesh) { child.userData.objectName = name; interactiveObjects.push(child); } });
+    }
+    collectMeshes(monitorGroup, 'monitor');
+    collectMeshes(booksGroup, 'books');
+    collectMeshes(folderGroup, 'folder');
+    collectMeshes(frameGroup, 'frame');
+
+    // ===================== PARTICLES (dust motes) =====================
+    const pCount = 60;
+    const pGeo = new THREE.BufferGeometry();
+    const pPos = new Float32Array(pCount * 3), pVel = [];
+    for (let i = 0; i < pCount; i++) {
+      pPos[i * 3] = (Math.random() - 0.5) * 7;
+      pPos[i * 3 + 1] = Math.random() * 4 - 0.5;
+      pPos[i * 3 + 2] = (Math.random() - 0.5) * 5;
+      pVel.push(0.0005 + Math.random() * 0.001);
+    }
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+    scene.add(new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.012, color: 0xddd0b8, transparent: true, opacity: 0.35, sizeAttenuation: true })));
+
+    // ===================== INTERACTION =====================
+    const mouse = new THREE.Vector2(0, 0), mouseSmooth = new THREE.Vector2(0, 0);
+    const raycaster = new THREE.Raycaster();
+    let hoveredName = null, activeObject = null, isAnimating = false;
+
+    function onPointerMove(e) { mouse.x = (e.clientX / innerWidth) * 2 - 1; mouse.y = -(e.clientY / innerHeight) * 2 + 1; }
+    function onPointerDown(e) {
+      if (isAnimating) return;
+      if (activeObject && e.target === renderer.domElement) { closePanel(); return; }
+      raycaster.setFromCamera(mouse, camera);
+      const hits = raycaster.intersectObjects(interactiveObjects);
+      if (hits.length > 0) zoomTo(hits[0].object.userData.objectName);
+    }
+    addEventListener('pointermove', onPointerMove, { passive: true });
+    addEventListener('pointerdown', onPointerDown);
+    document.querySelectorAll('#nav a').forEach(a => a.addEventListener('click', e => { e.preventDefault(); if (!isAnimating) zoomTo(a.dataset.target); }));
+
+    // Screen mode map
+    const SCREEN_MODE = { monitor: 'about', books: 'research', folder: 'documents', frame: 'photos' };
+
+    function zoomTo(name) {
+      if (activeObject === name || isAnimating) return;
+      isAnimating = true; activeObject = name;
+      const meta = OBJECTS_META[name];
+      gsap.to(camera.position, { x: meta.cam.x, y: meta.cam.y, z: meta.cam.z, duration: 1.2, ease: 'power3.inOut', onComplete: () => { isAnimating = false; } });
+      gsap.to(currentLookAt, { x: meta.look.x, y: meta.look.y, z: meta.look.z, duration: 1.2, ease: 'power3.inOut' });
+      document.getElementById('nav').classList.remove('show');
+      document.getElementById('hint').classList.remove('show');
+      // Update screen
+      updateScreen(SCREEN_MODE[name] || 'idle');
+      setTimeout(() => showPanel(name), 350);
+    }
+
+    function zoomOut() {
+      if (isAnimating) return;
+      isAnimating = true; activeObject = null;
+      gsap.to(camera.position, { x: CAM_DEFAULT.x, y: CAM_DEFAULT.y, z: CAM_DEFAULT.z, duration: 1.0, ease: 'power3.inOut', onComplete: () => { isAnimating = false; } });
+      gsap.to(currentLookAt, { x: LOOK_DEFAULT.x, y: LOOK_DEFAULT.y, z: LOOK_DEFAULT.z, duration: 1.0, ease: 'power3.inOut' });
+      document.getElementById('nav').classList.add('show');
+      document.getElementById('hint').classList.add('show');
+      updateScreen('idle');
+    }
+
+    // ===================== PANEL =====================
+    const panel = document.getElementById('panel'), panelContent = document.getElementById('panel-content');
+    const CONTENT = {
+      monitor: `<img src="figure.jpg" alt="Qiye Han" class="p-profile"><h2 class="pt">Qiye Han</h2><p class="ps">Economics &middot; Renmin University of China &middot; Exchange at UChicago</p><div class="pd"></div><p class="pb">I am a third-year undergraduate in Economics at Renmin University of China, currently on a one-year exchange at the University of Chicago. My research interests center on how technological innovation shapes investment&mdash;from platform design and investor behavior to NLP-enabled measurement in financial research.</p><p class="pb">I have research experience working with Professor Celine Yue Fei on ESG investment and platform nudges, and with Professor Ziteng Lei on representation learning and embeddings. I am ranked in the top 5% of my cohort and aspire to pursue a PhD in Finance or Economics.</p><div class="p-contact"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg><a href="mailto:hanqiye3@gmail.com">hanqiye3@gmail.com</a></div>`,
+      books: `<h2 class="pt">Research Interests</h2><div class="pd"></div><div class="pc"><h4>Platform Design & Investor Behavior</h4><p>How platform innovations and choice architecture reshape investment decisions. My work examines ESG investment on fintech platforms, uncovering substitution effects between offline green behavior and portfolio allocation.</p></div><div class="pc"><h4>NLP & Computational Finance</h4><p>Applying NLP, LLMs, and representation learning to financial data. I study how embeddings trained on asset characteristics can capture economic structure beyond traditional factor models.</p></div><div class="pc"><h4>Behavioral & Experimental Economics</h4><p>Designing randomized controlled trials and quasi-experimental studies (DiD, event studies) to identify causal effects of platform nudges on investor behavior and pro-environment actions.</p></div><div class="pc"><h4>Economic Theory & Modeling</h4><p>Building theoretical models that clarify mechanisms behind empirical findings. Trained in dynamic equilibrium analysis and intertemporal allocation at UChicago.</p></div>`,
+      folder: `<h2 class="pt">Documents</h2><p class="ps">Click to download</p><div class="pd"></div><a href="Qiye_Han_CV (3).pdf" download class="pdl"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg><div><div>Curriculum Vitae</div><div class="meta">PDF</div></div></a><a href="Real_Analysis_Notes.pdf" download class="pdl"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg><div><div>Real Analysis Notes</div><div class="meta">PDF</div></div></a>`,
+      frame: `<h2 class="pt">Photography</h2><p class="ps">A selection of photographs from travels and daily life</p><div class="pd"></div><div class="pgrid"><img src="Photographs/3d27986e0423a1bfcaaa8db9ffe083d4.jpg" alt="Sand dunes" onclick="openLightbox(this)"><img src="Photographs/70e6c77c9037209f624da647672f3ead.jpg" alt="Chicago Board of Trade" onclick="openLightbox(this)"><img src="Photographs/3f28cbf20352de54b14b591a2960e131.jpg" alt="Tropical beach" onclick="openLightbox(this)"><img src="Photographs/fc3cec88b015ad5023ea2425a4ca8a67.jpg" alt="Federal Reserve Bank" onclick="openLightbox(this)"><img src="Photographs/66845b9c3e353a6dec94e85713746814.jpg" alt="Desert dunes" onclick="openLightbox(this)"><img src="Photographs/722c10e42e728427f4ec53249836656a.jpg" alt="Sculpture" onclick="openLightbox(this)"></div>`
+    };
+    function showPanel(name) { panelContent.innerHTML = CONTENT[name]; panel.classList.add('open'); }
+    function closePanel() { panel.classList.remove('open'); zoomOut(); }
+    document.getElementById('panel-close').addEventListener('click', closePanel);
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { document.getElementById('lightbox').classList.contains('active') ? document.getElementById('lightbox').classList.remove('active') : activeObject && closePanel(); }
+    });
+
+    window.openLightbox = function(img) { event.stopPropagation(); document.getElementById('lightbox-img').src = img.src; document.getElementById('lightbox').classList.add('active'); };
+    window.closeLightbox = function() { document.getElementById('lightbox').classList.remove('active'); };
+
+    // ===================== LABELS =====================
+    const labelVec = new THREE.Vector3();
+    function updateLabels() {
+      for (const [name, meta] of Object.entries(OBJECTS_META)) {
+        const group = objectGroups[name];
+        if (!group) continue;
+        labelVec.copy(group.position).add(meta.labelOffset);
+        labelVec.project(camera);
+        const el = meta.label;
+        el.style.left = (labelVec.x * 0.5 + 0.5) * innerWidth + 'px';
+        el.style.top = (-labelVec.y * 0.5 + 0.5) * innerHeight + 'px';
+        el.classList.toggle('visible', !activeObject && labelVec.z < 1);
+        el.classList.toggle('hovered', hoveredName === name);
+      }
+    }
+
+    // ===================== RENDER LOOP =====================
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      mouseSmooth.x += (mouse.x - mouseSmooth.x) * 0.05;
+      mouseSmooth.y += (mouse.y - mouseSmooth.y) * 0.05;
+
+      if (!activeObject && !isAnimating) {
+        camera.position.x = CAM_DEFAULT.x + mouseSmooth.x * 0.25;
+        camera.position.y = CAM_DEFAULT.y + mouseSmooth.y * 0.12;
+      }
+      camera.lookAt(currentLookAt);
+
+      // Breathing
+      for (const [name, group] of Object.entries(objectGroups)) {
+        const idx = ['monitor', 'books', 'folder', 'frame'].indexOf(name);
+        group.position.y = DESK_Y + 0.05 + Math.sin(t * 0.4 + idx * 1.5) * 0.003;
+      }
+
+      // Particles
+      const pos = pGeo.attributes.position.array;
+      for (let i = 0; i < pCount; i++) {
+        pos[i * 3 + 1] += pVel[i];
+        if (pos[i * 3 + 1] > 4) { pos[i * 3 + 1] = -0.5; pos[i * 3] = (Math.random() - 0.5) * 7; pos[i * 3 + 2] = (Math.random() - 0.5) * 5; }
+      }
+      pGeo.attributes.position.needsUpdate = true;
+
+      // Hover
+      if (!activeObject) {
+        raycaster.setFromCamera(mouseSmooth, camera);
+        const hits = raycaster.intersectObjects(interactiveObjects);
+        const nh = hits.length > 0 ? hits[0].object.userData.objectName : null;
+        if (nh !== hoveredName) {
+          if (hoveredName && objectGroups[hoveredName]) gsap.to(objectGroups[hoveredName].scale, { x: 1, y: 1, z: 1, duration: 0.3, ease: 'power2.out' });
+          if (nh && objectGroups[nh]) gsap.to(objectGroups[nh].scale, { x: 1.05, y: 1.05, z: 1.05, duration: 0.3, ease: 'power2.out' });
+          hoveredName = nh;
+          document.body.style.cursor = nh ? 'pointer' : 'default';
+        }
+      }
+
+      updateLabels();
+      renderer.render(scene, camera);
+    }
+
+    addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+    setTimeout(() => {
+      document.getElementById('loader').classList.add('done');
+      setTimeout(() => { ['header', 'view-link', 'hint', 'nav'].forEach(id => document.getElementById(id).classList.add('show')); }, 600);
+    }, 1500);
+
+    animate();
   </script>
 </body>
 </html>
