@@ -18,7 +18,7 @@
   </script>
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; overflow: hidden; background: #d5cfc5; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #c8c2b8; }
     body { font-family: 'Inter', system-ui, sans-serif; color: #2d2a26; -webkit-font-smoothing: antialiased; }
 
     #canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
@@ -34,7 +34,7 @@
 
     /* Loader */
     #loader {
-      position: fixed; inset: 0; z-index: 200; background: #d5cfc5;
+      position: fixed; inset: 0; z-index: 200; background: #c8c2b8;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       transition: opacity 1s ease;
     }
@@ -91,10 +91,11 @@
 
     .label-3d {
       position: absolute; pointer-events: none; white-space: nowrap;
-      font-size: 0.55rem; color: #9a9088; text-transform: uppercase;
-      letter-spacing: 0.12em; font-weight: 500;
+      font-size: 0.7rem; color: #5a534a; text-transform: uppercase;
+      letter-spacing: 0.1em; font-weight: 600;
       opacity: 0; transition: opacity 0.4s ease, color 0.3s ease;
       transform: translate(-50%, 0);
+      text-shadow: 0 1px 3px rgba(255,255,255,0.6);
     }
     .label-3d.visible { opacity: 1; }
     .label-3d.hovered { color: #4d6a6d; }
@@ -223,7 +224,7 @@
         cam: new THREE.Vector3(0.15, 1.8, 2.4),
         look: new THREE.Vector3(0.15, 1.0, -0.3),
         label: document.getElementById('lbl-monitor'),
-        labelOffset: new THREE.Vector3(0, 2.2, 0)
+        labelOffset: new THREE.Vector3(0, 2.1, 0)
       },
       books: {
         cam: new THREE.Vector3(-1.5, 1.4, 2.3),
@@ -238,17 +239,17 @@
         labelOffset: new THREE.Vector3(0, 0.6, 0)
       },
       frame: {
-        cam: new THREE.Vector3(-1.0, 1.8, 1.8),
-        look: new THREE.Vector3(-1.1, 1.5, -1.9),
+        cam: new THREE.Vector3(-0.8, 1.9, 1.2),
+        look: new THREE.Vector3(-0.8, 1.8, -2.1),
         label: document.getElementById('lbl-frame'),
-        labelOffset: new THREE.Vector3(0, 0.8, 0)
+        labelOffset: new THREE.Vector3(-0.8, 2.85, -2.15)
       }
     };
 
     // ===================== SCENE =====================
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xd5cfc5);
-    scene.fog = new THREE.FogExp2(0xd5cfc5, 0.04);
+    scene.background = new THREE.Color(0xc8c2b8);
+    scene.fog = new THREE.FogExp2(0xc8c2b8, 0.035);
 
     const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 100);
     camera.position.copy(CAM_DEFAULT);
@@ -261,7 +262,7 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.8;
+    renderer.toneMappingExposure = 1.35;
     const clock = new THREE.Clock();
 
     // ===================== LIGHTS =====================
@@ -274,7 +275,7 @@
     scene.add(hemi);
 
     // Main sunlight from upper-right-back (window light)
-    const sun = new THREE.DirectionalLight(0xfff5e0, 3.5);
+    const sun = new THREE.DirectionalLight(0xfff5e0, 2.8);
     sun.position.set(3, 5, -1);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -586,7 +587,7 @@
       // Screen (Mac OS canvas)
       const screen = new THREE.Mesh(
         new THREE.PlaneGeometry(0.96, 0.68),
-        new THREE.MeshStandardMaterial({ map: screenTex, emissiveMap: screenTex, emissive: 0xffffff, emissiveIntensity: 1.5, roughness: 0.3, metalness: 0.0 })
+        new THREE.MeshStandardMaterial({ map: screenTex, emissiveMap: screenTex, emissive: 0xffffff, emissiveIntensity: 0.6, roughness: 0.25, metalness: 0.0 })
       );
       screen.position.set(0, 1.18, bodyD / 2 + 0.025);
       g.add(screen);
@@ -728,15 +729,45 @@
     // --- BOOKS ---
     function buildBooks() {
       const g = new THREE.Group();
-      const colors = [0x6b3a2a, 0x2d5a4e, 0x4a3b6c, 0x9b7820];
-      for (let i = 0; i < 4; i++) {
-        const mat = new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.78 });
-        const book = new THREE.Mesh(new THREE.BoxGeometry(0.75 + Math.random() * 0.12, 0.11, 0.95), mat);
-        book.position.set((Math.random() - 0.5) * 0.05, i * 0.12, (Math.random() - 0.5) * 0.03);
-        book.rotation.y = (Math.random() - 0.5) * 0.06;
+      const bookData = [
+        { color: 0x6b3a2a, accent: 0xc9a043, w: 0.78, title: 'ECONOMICS' },
+        { color: 0x2d5a4e, accent: 0x89c4a8, w: 0.82, title: 'FINANCE' },
+        { color: 0x4a3b6c, accent: 0xb89dd4, w: 0.74, title: 'METHODS' },
+        { color: 0x9b7820, accent: 0xf0d878, w: 0.85, title: 'NLP & ML' },
+      ];
+      bookData.forEach((bd, i) => {
+        const bh = 0.11, bd2 = 0.95;
+        const mat = new THREE.MeshStandardMaterial({ color: bd.color, roughness: 0.72 });
+        const book = new THREE.Mesh(new THREE.BoxGeometry(bd.w, bh, bd2), mat);
+        book.position.set((i % 2 === 0 ? -0.02 : 0.02), i * 0.12, (i % 2 === 0 ? -0.01 : 0.01));
+        book.rotation.y = (i % 2 === 0 ? -0.03 : 0.03);
         book.castShadow = true;
         g.add(book);
-      }
+        // Spine accent stripe
+        const stripe = new THREE.Mesh(
+          new THREE.BoxGeometry(0.005, bh + 0.001, bd2 * 0.6),
+          new THREE.MeshStandardMaterial({ color: bd.accent, roughness: 0.5, metalness: 0.2 })
+        );
+        stripe.position.set(-bd.w / 2 + 0.003, i * 0.12, 0);
+        stripe.rotation.y = book.rotation.y;
+        g.add(stripe);
+        // Spine title label
+        const spineCanvas = document.createElement('canvas');
+        spineCanvas.width = 128; spineCanvas.height = 16;
+        const sc = spineCanvas.getContext('2d');
+        sc.fillStyle = '#' + bd.accent.toString(16).padStart(6, '0');
+        sc.font = 'bold 9px Helvetica, Arial, sans-serif';
+        sc.fillText(bd.title, 4, 11);
+        const spineTex = new THREE.CanvasTexture(spineCanvas);
+        const spineLabel = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.55, 0.06),
+          new THREE.MeshStandardMaterial({ map: spineTex, transparent: true })
+        );
+        spineLabel.rotation.y = -Math.PI / 2;
+        spineLabel.rotation.z = Math.PI / 2;
+        spineLabel.position.set(-bd.w / 2 - 0.001, i * 0.12, 0);
+        g.add(spineLabel);
+      });
       g.position.set(-1.5, DESK_Y + 0.05, 0.3);
       return g;
     }
@@ -744,39 +775,106 @@
     // --- FOLDER ---
     function buildFolder() {
       const g = new THREE.Group();
-      const fMat = new THREE.MeshStandardMaterial({ color: 0xc9a96e, roughness: 0.65 });
+      const fMat = new THREE.MeshStandardMaterial({ color: 0xc9a96e, roughness: 0.6, metalness: 0.02 });
+      // Bottom folder
       const folder = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.04, 1.05), fMat);
       folder.castShadow = true;
       g.add(folder);
+      // Tab
       const tab = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.04, 0.12), fMat);
       tab.position.set(-0.15, 0.04, -0.46);
       g.add(tab);
-      const paper = new THREE.Mesh(
-        new THREE.BoxGeometry(0.75, 0.008, 0.5),
-        new THREE.MeshStandardMaterial({ color: 0xfaf5ea, roughness: 0.9 })
+      // Tab label
+      const tabCanvas = document.createElement('canvas');
+      tabCanvas.width = 64; tabCanvas.height = 16;
+      const tc = tabCanvas.getContext('2d');
+      tc.fillStyle = '#8a6e3a';
+      tc.font = 'bold 9px Helvetica, Arial, sans-serif';
+      tc.fillText('CV & DOCS', 4, 11);
+      const tabTex = new THREE.CanvasTexture(tabCanvas);
+      const tabLabel = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.24, 0.06),
+        new THREE.MeshStandardMaterial({ map: tabTex, transparent: true })
       );
-      paper.position.set(0.04, 0.025, -0.25);
-      paper.rotation.y = 0.02;
-      g.add(paper);
+      tabLabel.rotation.x = -Math.PI / 2;
+      tabLabel.position.set(-0.15, 0.065, -0.46);
+      g.add(tabLabel);
+      // Multiple papers sticking out
+      const paperMat = new THREE.MeshStandardMaterial({ color: 0xfaf5ea, roughness: 0.9 });
+      const papers = [
+        { x: 0.04, z: -0.28, ry: 0.02, w: 0.75, d: 0.5 },
+        { x: -0.02, z: -0.22, ry: -0.03, w: 0.7, d: 0.45 },
+        { x: 0.06, z: -0.18, ry: 0.05, w: 0.72, d: 0.42 },
+      ];
+      papers.forEach((p, i) => {
+        const paper = new THREE.Mesh(new THREE.BoxGeometry(p.w, 0.005, p.d), paperMat);
+        paper.position.set(p.x, 0.025 + i * 0.005, p.z);
+        paper.rotation.y = p.ry;
+        g.add(paper);
+      });
+      // Decorative lines on top paper (printed text)
+      const docCanvas = document.createElement('canvas');
+      docCanvas.width = 128; docCanvas.height = 96;
+      const dc = docCanvas.getContext('2d');
+      dc.fillStyle = '#faf5ea';
+      dc.fillRect(0, 0, 128, 96);
+      dc.fillStyle = '#ccc';
+      for (let ly = 12; ly < 80; ly += 8) {
+        dc.fillRect(10, ly, 60 + Math.random() * 48, 2);
+      }
+      dc.fillStyle = '#999';
+      dc.font = 'bold 8px Helvetica, Arial, sans-serif';
+      dc.fillText('Curriculum Vitae', 10, 8);
+      const docTex = new THREE.CanvasTexture(docCanvas);
+      const topDoc = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.7, 0.4),
+        new THREE.MeshStandardMaterial({ map: docTex, roughness: 0.9 })
+      );
+      topDoc.rotation.x = -Math.PI / 2;
+      topDoc.position.set(0.04, 0.045, -0.25);
+      topDoc.rotation.z = 0.02;
+      g.add(topDoc);
       g.position.set(1.5, DESK_Y + 0.05, 0.15);
       return g;
     }
 
-    // --- PHOTO FRAME (wall) ---
+    // --- PHOTO FRAMES (wall gallery) ---
     function buildFrame() {
       const g = new THREE.Group();
-      const fMat = new THREE.MeshStandardMaterial({ color: 0x5a4d40, roughness: 0.4, metalness: 0.3 });
-      const tw = 0.06, fw = 1.0, fh = 1.25;
-      [[0, fh / 2, fw, tw], [0, -fh / 2, fw, tw], [-fw / 2 + tw / 2, 0, tw, fh + tw], [fw / 2 - tw / 2, 0, tw, fh + tw]]
-        .forEach(([x, y, w, h]) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, tw), fMat); b.position.set(x, y, 0); b.castShadow = true; g.add(b); });
-      const tex = textureLoader.load('Photographs/3d27986e0423a1bfcaaa8db9ffe083d4.jpg');
-      const photo = new THREE.Mesh(
-        new THREE.PlaneGeometry(fw - tw * 2, fh - tw * 2),
-        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.3 })
-      );
-      photo.position.z = 0.02;
-      g.add(photo);
-      g.position.set(-1.1, 1.55, -2.15);
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a3028, roughness: 0.35, metalness: 0.35 });
+      const lightFrameMat = new THREE.MeshStandardMaterial({ color: 0xc0a880, roughness: 0.4, metalness: 0.15 });
+      const photos = [
+        { src: 'Photographs/3d27986e0423a1bfcaaa8db9ffe083d4.jpg', x: -1.25, y: 1.7, w: 0.7, h: 0.9, mat: frameMat },
+        { src: 'Photographs/70e6c77c9037209f624da647672f3ead.jpg', x: -0.35, y: 1.55, w: 0.55, h: 0.7, mat: lightFrameMat },
+        { src: 'Photographs/722c10e42e728427f4ec53249836656a.jpg', x: -0.4, y: 2.4, w: 0.5, h: 0.65, mat: frameMat },
+      ];
+      photos.forEach(p => {
+        const tw = 0.04, fd = 0.03;
+        // Frame border pieces
+        [[0, p.h / 2, p.w, tw], [0, -p.h / 2, p.w, tw],
+         [-p.w / 2 + tw / 2, 0, tw, p.h + tw], [p.w / 2 - tw / 2, 0, tw, p.h + tw]]
+          .forEach(([fx, fy, fw2, fh2]) => {
+            const b = new THREE.Mesh(new THREE.BoxGeometry(fw2, fh2, fd), p.mat);
+            b.position.set(p.x + fx, p.y + fy, -2.18);
+            b.castShadow = true;
+            g.add(b);
+          });
+        // White mat border
+        const matBorder = new THREE.Mesh(
+          new THREE.PlaneGeometry(p.w - tw, p.h - tw),
+          new THREE.MeshStandardMaterial({ color: 0xf5f0e8, roughness: 0.95 })
+        );
+        matBorder.position.set(p.x, p.y, -2.165);
+        g.add(matBorder);
+        // Photo (slightly smaller than mat)
+        const tex = textureLoader.load(p.src);
+        const photo = new THREE.Mesh(
+          new THREE.PlaneGeometry((p.w - tw) * 0.78, (p.h - tw) * 0.78),
+          new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35 })
+        );
+        photo.position.set(p.x, p.y, -2.16);
+        g.add(photo);
+      });
       return g;
     }
 
@@ -800,6 +898,12 @@
     const lampLight = new THREE.PointLight(0xffcc88, 2, 4, 2);
     lampLight.position.set(-2.0, 0.6, -0.5);
     scene.add(lampLight);
+
+    // Wall gallery light
+    const galleryLight = new THREE.SpotLight(0xfff0dd, 2.5, 5, Math.PI / 5, 0.5, 1);
+    galleryLight.position.set(-0.8, 3.2, -0.5);
+    galleryLight.target.position.set(-0.8, 1.7, -2.15);
+    scene.add(galleryLight, galleryLight.target);
 
     // Build all
     const monitorGroup = buildMonitor();
@@ -903,7 +1007,12 @@
       for (const [name, meta] of Object.entries(OBJECTS_META)) {
         const group = objectGroups[name];
         if (!group) continue;
-        labelVec.copy(group.position).add(meta.labelOffset);
+        if (name === 'frame') {
+          // Frame labels use absolute world position
+          labelVec.copy(meta.labelOffset);
+        } else {
+          labelVec.copy(group.position).add(meta.labelOffset);
+        }
         labelVec.project(camera);
         const el = meta.label;
         el.style.left = (labelVec.x * 0.5 + 0.5) * innerWidth + 'px';
@@ -926,9 +1035,10 @@
       }
       camera.lookAt(currentLookAt);
 
-      // Breathing
+      // Breathing (desk objects only, not wall frames)
       for (const [name, group] of Object.entries(objectGroups)) {
-        const idx = ['monitor', 'books', 'folder', 'frame'].indexOf(name);
+        if (name === 'frame') continue;
+        const idx = ['monitor', 'books', 'folder'].indexOf(name);
         group.position.y = DESK_Y + 0.05 + Math.sin(t * 0.4 + idx * 1.5) * 0.003;
       }
 
